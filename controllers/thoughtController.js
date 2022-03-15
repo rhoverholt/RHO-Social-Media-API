@@ -31,7 +31,6 @@ module.exports = {
 
   // create a new thought
   createThought(req, res) {
-    console.log(req.body);
     if (!req.body?.thoughtText || !req.body?.username) {
       res
         .status(404)
@@ -61,7 +60,6 @@ module.exports = {
                     .status(404)
                     .json({ message: "Error writing thought to user" });
                 else {
-                  console.log(user);
                   res.json(thought);
                 }
               })
@@ -73,7 +71,6 @@ module.exports = {
   },
 
   // Update a thought
-  // Does not currently handle changing the user's name.
   updateThought(req, res) {
     Thought.findOneAndUpdate(
       { _id: req.params.thoughtId },
@@ -91,11 +88,28 @@ module.exports = {
   // Delete a thought  //needs to remove from user also.
   deleteThought(req, res) {
     Thought.findOneAndRemove({ _id: req.params.thoughtId })
-      .then((thought) =>
+      .then((thought) => {
+        console.log(thought);
         !thought
           ? res.status(404).json({ message: "No such student exists" })
-          : res.json({ message: "Thought successfully deleted" })
-      )
+          : res.json({ message: "Thought successfully deleted" });
+
+        if (thought.username) {
+          User.findOne({ username: thought.username }).then((user) => {
+            let thoughtList = [];
+            user.thoughts.forEach((userThought) => {
+              if (userThought != thought.id) thoughtList.push(userThought);
+            });
+            User.findOneAndUpdate(
+              { username: thought.username },
+              { $set: { thoughts: thoughtList } },
+              { runValidators: true, new: true }
+            )
+              .then((msg) => msg)
+              .catch((msg) => msg);
+          });
+        }
+      })
       .catch((err) => {
         console.log(err);
         res.status(500).json(err);
